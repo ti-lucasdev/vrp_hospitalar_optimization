@@ -63,6 +63,10 @@ class CalculadorFitness:
         individuo.fitness = sum(self.avaliar_veiculo(v, pontos) for v in individuo.frotas)
         return individuo.fitness
 
+# ====================================================================
+# FUNÇÕES DE ESCOPO GLOBAL (Fora das classes)
+# ====================================================================
+
 def inicializar_populacao_heuristica(pontos: List[PontoEntrega], 
                                      modelos_veiculos: List[Veiculo], 
                                      tamanho_populacao: int, 
@@ -131,7 +135,7 @@ def cruzamento_ox(pai1_genes: List[int], pai2_genes: List[int]) -> List[int]:
     
     posicao_insercao = (fim + 1) % tamanho
     for gene in pai2_genes:
-        if gene not in filho: 
+        if gene not in filho:
             filho[posicao_insercao] = gene
             posicao_insercao = (posicao_insercao + 1) % tamanho
             
@@ -191,6 +195,10 @@ def selecao_torneio(populacao: List[IndividuoVRP], tamanho_torneio: int = 3) -> 
     competidores = random.sample(populacao, tamanho_torneio)
     return min(competidores, key=lambda ind: ind.fitness)
 
+# ====================================================================
+# CLASSE DE ORQUESTRAÇÃO
+# ====================================================================
+
 class OtimizadorVRP:
     """Motor principal que orquestra a evolução do Algoritmo Genético."""
     def __init__(self, pontos: List[PontoEntrega], modelos_veiculos: List[Veiculo], 
@@ -212,7 +220,7 @@ class OtimizadorVRP:
         self.melhor_individuo_global = None
         self.historico_fitness = []
 
-    def executar(self, callback=None) -> IndividuoVRP:
+    def executar(self) -> IndividuoVRP:
         populacao = inicializar_populacao_heuristica(
             self.pontos, self.modelos_veiculos, self.tamanho_populacao, self.gerenciador_dist
         )
@@ -235,9 +243,6 @@ class OtimizadorVRP:
                 estagnacao += 1
                 
             self.historico_fitness.append(self.melhor_individuo_global.fitness)
-            
-            if callback is not None:
-                callback(self.melhor_individuo_global, self.historico_fitness)
             
             nova_populacao = populacao[:self.num_elite]
             

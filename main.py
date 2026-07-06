@@ -1,5 +1,6 @@
 import random
-import matplotlib.pyplot as plt
+# Importamos as funções de tempo real da nova interface
+from src.interface.visualizacao import inicializar_tela, atualizar_frame_tempo_real, manter_tela_aberta
 from src.core.models import PontoEntrega, Veiculo
 from src.core.genetic_alg import OtimizadorVRP
 
@@ -18,60 +19,12 @@ def gerar_pontos_aleatorios(quantidade: int) -> list[PontoEntrega]:
         )
     return pontos
 
-def plotar_resultados_vrp(pontos: list, melhor_solucao, historico_fitness: list):
-    """Plota o mapa de rotas no plano cartesiano e o gráfico de convergência do fitness."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    
-    # Gráfico 1: Mapa de Rotas
-    ax1.set_title("Mapa de Rotas Otimizadas (VRP)")
-    ax1.set_xlabel("Coordenada X")
-    ax1.set_ylabel("Coordenada Y")
-    ax1.grid(True, linestyle="--", alpha=0.6)
-    
-    hospital = pontos[0]
-    pontos_normais = [p for p in pontos[1:] if not p.e_critico]
-    pontos_criticos = [p for p in pontos[1:] if p.e_critico]
-    
-    ax1.scatter(hospital.x, hospital.y, color="red", s=200, marker="H", label="Hospital (Depósito)", zorder=5)
-    if pontos_normais:
-        ax1.scatter([p.x for p in pontos_normais], [p.y for p in pontos_normais], color="blue", s=75, label="Entrega Regular", zorder=4)
-    if pontos_criticos:
-        ax1.scatter([p.x for p in pontos_criticos], [p.y for p in pontos_criticos], color="orange", s=100, marker="^", label="Medicamento Crítico", zorder=4)
-    
-    for p in pontos:
-        ax1.annotate(f"ID {p.id_ponto}", (p.x + 0.5, p.y + 0.5), fontsize=9, fontweight="bold")
-        
-    cores_frotas = ["green", "purple", "darkorange", "cyan", "magenta", "black"]
-    
-    for idx, veiculo in enumerate(melhor_solucao.frotas):
-        if len(veiculo.rota) > 2:
-            cor = cores_frotas[idx % len(cores_frotas)]
-            rota_x = [pontos[id_no].x for id_no in veiculo.rota]
-            rota_y = [pontos[id_no].y for id_no in veiculo.rota]
-            ax1.plot(rota_x, rota_y, color=cor, linewidth=2, linestyle="-", label=f"Veículo {veiculo.id_veiculo}", zorder=3)
-            
-    ax1.legend(loc="upper left", fontsize=9)
-    
-    # Gráfico 2: Convergência do Fitness
-    ax2.set_title("Curva de Aprendizado do Algoritmo Genético")
-    ax2.set_xlabel("Gerações")
-    ax2.set_ylabel("Valor do Fitness (Custo Total)")
-    ax2.grid(True, linestyle="--", alpha=0.6)
-    
-    ax2.plot(historico_fitness, color="crimson", linewidth=2.5, label="Melhor Custo Estocástico")
-    ax2.legend(loc="upper right")
-    
-    plt.tight_layout()
-    plt.show()
-
 def rodar_teste():
-    print("=== Inicializando Teste do Motor Genético (VRP) ===")
+    print("=== Inicializando Teste do Motor Genético (VRP) em Tempo Real ===")
     
     QUANTIDADE_PONTOS = 20 
-    
     pontos = gerar_pontos_aleatorios(QUANTIDADE_PONTOS)
     
-    # Autonomia configurada para 200.0 para viabilizar a resolução geométrica de 20 pontos sem penalidades
     modelos_veiculos = [
         Veiculo(id_veiculo=1, capacidade_max=75.0, autonomia_max=200.0),
         Veiculo(id_veiculo=2, capacidade_max=75.0, autonomia_max=200.0),
@@ -90,23 +43,22 @@ def rodar_teste():
         taxa_elitismo=0.03
     )
     
-    print(f"\nEvoluindo rotas para {QUANTIDADE_PONTOS} pontos... Aguarde.")
-    melhor_solucao = otimizador.executar()
+    # [Etapa 1] Inicializa a interface gráfica
+    inicializar_tela()
     
-    print("\n================ RESULTADO FINAL ================")
-    print(f"Melhor Custo (Fitness) Encontrado: {melhor_solucao.fitness:.2f}")
-    print("-------------------------------------------------")
+    # [Etapa 2] Execução com callback para visualização em tempo real
+    print(f"\nEvoluindo rotas para {QUANTIDADE_PONTOS} pontos... Veja a janela do Pygame!")
+    melhor_solucao = otimizador.executar(
+        callback=lambda melhor, historico: atualizar_frame_tempo_real(pontos, melhor, historico)
+    )
     
-    for veiculo in melhor_solucao.frotas:
-        if len(veiculo.rota) > 2:
-            print(f"Veículo ID {veiculo.id_veiculo}:")
-            print(f"  -> Rota Logística: {veiculo.rota}")
-            carga_real = sum(pontos[idx].demanda_carga for idx in veiculo.rota)
-            print(f"  -> Carga Alocada: {carga_real}/{veiculo.capacidade_max} kg")
-            print("-" * 49)
-
-    plotar_resultados_vrp(pontos, melhor_solucao, otimizador.historico_fitness)
+    print("\n================ PROCESSAMENTO CONCLUÍDO ================")
+    print(f"Melhor Custo Final: {melhor_solucao.fitness:.2f}")
+    
+    # [Etapa 3] Retenção da tela para auditoria final
+    manter_tela_aberta()
 
 if __name__ == "__main__":
+    # Para gerar cenários diferentes, altere a seed ou comente a linha abaixo
     random.seed(42)
     rodar_teste()
