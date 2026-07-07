@@ -194,7 +194,10 @@ Execução: `pytest tests/`
 
 ### 8.1 Pré-requisitos
 
-Python **3.10 ou superior**.
+- **Versão do Python:** Recomenda-se obrigatoriamente o uso do **Python 3.12** ou **3.13**.
+  
+> ⚠️ **Nota importante de ambiente (Compatibilidade):** > - A aplicação **não roda no Python 3.11** ou anterior. O instalador (`pip`) irá travar na montagem do ambiente devido à dependência `numpy==2.5.1`, que exige nativamente o interpretador na versão 3.12 ou superior.
+> - Em versões experimentais ou de desenvolvimento como o **Python 3.14**, a instalação do ambiente padrão via `requirements.txt` pode falhar no processo de compilação C++ devido à falta de binários pré-compilados (`.whl`) para algumas bibliotecas tradicionais. Para contornar cenários no Python 3.14, o arquivo de dependências foi ajustado manualmente para utilizar o ecossistema da comunidade através do pacote `pygame-ce==2.5.7`.
 
 ### 8.2 Clonar e criar o ambiente virtual
 
