@@ -1,3 +1,4 @@
+import os
 import pygame
 import sys
 import math
@@ -6,9 +7,9 @@ import threading
 
 # Configurações da janela
 LARGURA_MAPA = 800
-LARGURA_PAINEL = 400
+LARGURA_PAINEL = 320
 LARGURA_JANELA = LARGURA_MAPA + LARGURA_PAINEL
-LARGURA_CHAT = 400  # Coluna extra aberta no modo chat (janela vai a 1600px)
+LARGURA_CHAT = 400  # Coluna extra aberta no modo chat (janela vai a 1520px)
 ALTURA_JANELA = 700
 
 # Fonte usada em todos os textos da interface
@@ -676,6 +677,9 @@ def _loop_chat(pontos_entrega, melhor_solucao, historico_fitness, responder, per
     LLM trabalha.
     """
     global _tela
+
+    # Força o Windows a recalcular a posição e jogar a janela para o centro do monitor
+    os.environ['SDL_VIDEO_WINDOW_POS'] = "center"
 
     # Alarga a janela para acomodar a coluna do chat ao lado do dashboard.
     _tela = pygame.display.set_mode((LARGURA_JANELA + LARGURA_CHAT, ALTURA_JANELA))

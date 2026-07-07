@@ -1,4 +1,11 @@
+import os
+
+# Corrige o caminho de certificados corrompidos antes de iniciar a IA
+if "SSL_CERT_FILE" in os.environ and not os.path.exists(os.environ["SSL_CERT_FILE"]):
+    del os.environ["SSL_CERT_FILE"]
+
 import random
+
 # Importamos as funções novas de tempo real
 from src.interface.visualizacao import inicializar_tela, atualizar_frame_tempo_real, manter_tela_aberta
 from src.core.models import PontoEntrega, Veiculo
@@ -95,5 +102,5 @@ def rodar_teste():
 
 if __name__ == "__main__":
     # Para gerar cenários e rotas diferentes a cada execução, comente a seed abaixo ou altere o seu valor
-    random.seed(42)
+    random.seed()
     rodar_teste()
