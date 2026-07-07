@@ -1,8 +1,17 @@
+import os
+
+# Corrige o caminho de certificados corrompidos antes de iniciar a IA
+if "SSL_CERT_FILE" in os.environ and not os.path.exists(os.environ["SSL_CERT_FILE"]):
+    del os.environ["SSL_CERT_FILE"]
+
 import random
-# Importamos as funções de tempo real da nova interface
+
+# Importamos as funções novas de tempo real
 from src.interface.visualizacao import inicializar_tela, atualizar_frame_tempo_real, manter_tela_aberta
 from src.core.models import PontoEntrega, Veiculo
 from src.core.genetic_alg import OtimizadorVRP
+from src.ia.contexto import construir_contexto
+from src.ia.assistente import criar_respondedor, montar_perguntas_exemplo
 
 def gerar_pontos_aleatorios(quantidade: int) -> list[PontoEntrega]:
     """Gera automaticamente uma lista de pontos com coordenadas e cargas aleatórias."""
@@ -54,11 +63,34 @@ def rodar_teste():
     
     print("\n================ PROCESSAMENTO CONCLUÍDO ================")
     print(f"Melhor Custo Final: {melhor_solucao.fitness:.2f}")
-    
-    # [Etapa 3] Retenção da tela para auditoria final
-    manter_tela_aberta()
+
+    # ----------------------------------------------------------------
+    # [Etapa 3] Chat com o Assistente de IA na própria janela:
+    # Após a convergência, a janela é alargada e ganha uma terceira coluna de chat com a LLM sobre a solução
+    # final — mapa e dashboard permanecem visíveis. A ponte entre as camadas é a função `responder`, criada
+    # pela camada de IA a partir do contexto estruturado — a interface não conhece a OpenAI e a IA não conhece o Pygame.
+    # Nenhuma requisição é feita automaticamente: a LLM só é consultada quando o usuário pergunta.
+    # Sem OPENAI_API_KEY, a janela apenas congela o resultado do fluxo anterior.
+    # ----------------------------------------------------------------
+    contexto = construir_contexto(pontos, melhor_solucao)
+    responder = criar_respondedor(contexto)
+    perguntas_exemplo = None
+    if responder is not None:
+        perguntas_exemplo = montar_perguntas_exemplo(contexto)
+        print("\nChat com o assistente habilitado na janela — faça perguntas por lá.")
+    else:
+        print("\nAviso: OPENAI_API_KEY não definida (veja .env.example) — "
+              "o chat da janela ficou desativado.")
+
+    manter_tela_aberta(
+        pontos_entrega=pontos,
+        melhor_solucao=melhor_solucao,
+        historico_fitness=otimizador.historico_fitness,
+        responder=responder,
+        perguntas_exemplo=perguntas_exemplo,
+    )
 
 if __name__ == "__main__":
-    # Para gerar cenários diferentes, altere a seed ou comente a linha abaixo
-    random.seed(42)
+    # Para gerar cenários e rotas diferentes a cada execução, comente a seed abaixo ou altere o seu valor
+    random.seed()
     rodar_teste()
