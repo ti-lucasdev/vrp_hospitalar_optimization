@@ -1,254 +1,261 @@
-# RELATÓRIO TÉCNICO, MANUAL DE VISUALIZAÇÃO E INTEGRAÇÃO (VRP)
+# Otimização de Roteamento Hospitalar (VRP)
 
-## Módulo de Interface Gráfica, Telemetria e Estabilidade de Sistema — 2º Integrante - Lucas Camilo
+Sistema de otimização logística aplicado a **entregas hospitalares críticas**, que utiliza **Algoritmos Genéticos** para resolver o Problema de Roteamento de Veículos (VRP). O motor de otimização estocástico é acoplado a uma camada de visualização em tempo real e a um assistente de IA (LLM), permitindo a auditoria humana da convergência das rotas e a consulta em linguagem natural sobre a solução final.
 
-Este documento apresenta a camada de visualização do projeto VRP (Problema de Roteamento de Veículos), aplicado ao contexto de logística hospitalar crítica, funcionando como relatório técnico oficial e guia de engenharia.
-
-Fiquei responsável pela organização estrutural do projeto em Python, configuração do ambiente de desenvolvimento, construção da interface gráfica, integração síncrona com o algoritmo genético e implementação dos testes automatizados de validação. O foco foi transformar as soluções cromossômicas abstratas do core em uma visualização reativa em tempo real, mantendo desacoplamento total entre lógica de negócio e interface.
+> Este projeto faz parte do **Tech Challenge (Fase 2)** de Inteligência Artificial.
 
 ---
 
-# 1. Visão Geral do Escopo
+## Sumário
 
-Com o algoritmo genético e seus operadores evolutivos já implementados pelo Integrante 1, minha contribuição consistiu em consumir os dados brutos gerados (frotas, rotas ordinais, fitness e histórico) e representá-los graficamente através de um gêmeo digital interativo.
-
-A arquitetura já previa a separação entre core e interface. A implementação seguiu estritamente esse princípio, mantendo a interface de apresentação como consumidora do motor genético via Inversão de Controle.
-
-Para a renderização, foi utilizada a biblioteca **Pygame**, escolhida por permitir a atualização contínua e a pintura frame a frame da interface gráfica, viabilizando que o analista assista ao processo de convergência e evolução biológica do algoritmo em tempo real.
-
----
-
-## Entregáveis Principais
-
-| Componente | Status | Observação |
-|------------|--------|-------------|
-| Estrutura modular do projeto | 100% | Separação entre core e interface |
-| Integração com o motor genético | 100% | Consumo do OtimizadorVRP |
-| Conversão de coordenadas | 100% | Mapeamento cartesiano para pixels |
-| HUD de telemetria | 100% | Exibição de métricas do sistema |
-| Testes automatizados | 100% | Validação com pytest |
+1. [Equipe de Desenvolvimento](#1-equipe-de-desenvolvimento)
+2. [Visão Geral do Escopo](#2-visão-geral-do-escopo)
+3. [Arquitetura e Contrato de Desacoplamento](#3-arquitetura-e-contrato-de-desacoplamento)
+4. [Core — Motor Genético (Integrante 1)](#4-core--motor-genético-integrante-1)
+5. [Interface Gráfica e Telemetria (Integrante 2)](#5-interface-gráfica-e-telemetria-integrante-2)
+6. [Camada de Inteligência Artificial (Integrante 3)](#6-camada-de-inteligência-artificial-integrante-3)
+7. [Testes Automatizados](#7-testes-automatizados)
+8. [Configuração e Execução](#8-configuração-e-execução)
+9. [Infraestrutura e Deploy (Integrante 4)](#9-infraestrutura-e-deploy-integrante-4)
 
 ---
 
-# 2. Decisões de Arquitetura
+## 1. Equipe de Desenvolvimento
 
-## 2.1 Integração com o Core (Execução do Motor e Callbacks)
+Trabalho desenvolvido de forma colaborativa, com a seguinte divisão de responsabilidades:
 
-A integração com o algoritmo genético ocorre através da classe `OtimizadorVRP`, responsável por executar o processo de otimização combinatória. Para evitar o acoplamento deletério entre a física do algoritmo e a camada gráfica, adotei um padrão de **Inversão de Controle (IoC) baseado em funções Callback via Expressões Lambda**.
+| Integrante                                  | Responsável | Módulo |
+|---------------------------------------------|-------------|--------|
+| **Integrante 1** — Marcius Lucas Fernandes  | Core do sistema, motor genético, heurísticas de inicialização e modelagem matemática | `src/core/` |
+| **Integrante 2** — Lucas Camilo   | Interface gráfica (Pygame), telemetria, integração síncrona com o motor e testes automatizados | `src/interface/` |
+| **Integrante 3** — Gustavo de Carvalho Dantas | Camada de inteligência cognitiva (LLM) sobre os dados finais da otimização | `src/ia/` |
+| **Integrante 4** — Sabrina de Oliveira Zago Capanema | Empacotamento (Docker), provisionamento de nuvem (Terraform) e documentação de arquitetura | *(planejado)* |
 
-O motor genético roda de forma agnóstica à interface. No entanto, a cada geração concluída, o loop interno do algoritmo dispara o callback, enviando o melhor indivíduo e o histórico atual para que a interface limpe o buffer da tela e redesenhe o grafo instantaneamente.
+---
 
-### Execução padrão (Agnóstica à Interface):
+## 2. Visão Geral do Escopo
+
+O sistema resolve o VRP no contexto de logística hospitalar crítica, integrando três camadas independentes:
+
+- Um **motor de otimização estocástico** (Algoritmo Genético) que evolui soluções de roteamento respeitando restrições de capacidade, autonomia e prioridade de pontos com urgência médica.
+- Uma **interface gráfica em tempo real** que funciona como um gêmeo digital interativo, permitindo ao analista assistir ao processo de convergência frame a frame.
+- Um **assistente de IA** que, ao final do processamento, responde perguntas sobre a melhor solução encontrada (instruções aos motoristas, relatórios executivos e sugestões de melhoria).
+
+Para a renderização foi utilizada a biblioteca **Pygame**, escolhida por permitir a atualização contínua e a pintura frame a frame, viabilizando a visualização da evolução biológica do algoritmo em tempo real.
+
+---
+
+## 3. Arquitetura e Contrato de Desacoplamento
+
+A arquitetura prevê **separação estrita entre Core, Interface e IA**. As três camadas nunca importam a implementação umas das outras — elas se encontram apenas em fronteiras de dados bem definidas, o que mantém o núcleo computacional puro, testável e reutilizável.
+
+```
+main.py
+  ├── src/core/       →  Motor genético (agnóstico a Pygame e OpenAI)
+  ├── src/interface/  →  Renderização Pygame (consome o Core via callback)
+  └── src/ia/         →  LLM (consome apenas o contexto estruturado)
+```
+
+### 3.1 Integração Core → Interface (Callback / IoC)
+
+A integração ocorre via **Inversão de Controle (IoC) baseada em funções callback**. O motor genético (`OtimizadorVRP`) roda de forma agnóstica à interface; a cada geração concluída, o loop interno dispara o callback, enviando o melhor indivíduo e o histórico atual para que a interface redesenhe o grafo instantaneamente.
+
+**Execução padrão (agnóstica à interface):**
 ```python
-otimizador = OtimizadorVRP(
-    pontos=pontos_logistica,
-    modelos_veiculos=frota_disponivel
-)
+otimizador = OtimizadorVRP(pontos=pontos_logistica, modelos_veiculos=frota_disponivel)
 melhor_solucao = otimizador.executar()
 ```
-Execução com Callback (Monitoramento em Tempo Real):
 
-```Python
+**Execução com callback (monitoramento em tempo real):**
+```python
 melhor_solucao = otimizador.executar(
-    callback=lambda melhor, historico: atualizar_frame_tempo_real(
-        pontos, melhor, historico
-    )
+    callback=lambda melhor, historico: atualizar_frame_tempo_real(pontos, melhor, historico)
 )
 ```
-## 2.2 Conversão de Coordenadas e Identidade Visual
-Os pontos de entrega gerados pelo algoritmo flutuam em um sistema cartesiano abstrato no intervalo de [-20.0, 20.0]. Como o Pygame utiliza coordenadas estritas em pixels a partir do canto superior esquerdo (0,0), foi desenvolvida uma função de transformação linear espacial. Esta função aplica margens de segurança de 60px para prevenir o estrangulamento visual ou corte de nós nas bordas da janela:
 
-```Python
+A lambda captura a lista estática de `pontos` por closure e mapeia as variáveis dinâmicas (`melhor`, `historico`) diretamente para o pipeline de pintura da interface.
+
+### 3.2 Integração Core → IA (Contexto Estruturado)
+
+A fronteira entre o resultado da otimização e a LLM é a função pura `construir_contexto(pontos, solucao)`, que serializa o `IndividuoVRP` num dicionário JSON. A camada de IA **não conhece o Pygame** e a interface **não conhece a OpenAI** — a integração é feita exclusivamente por esse contexto e por uma função `responder(pergunta)`.
+
+---
+
+## 4. Core — Motor Genético (Integrante 1)
+
+O núcleo modela o problema e conduz a evolução das soluções.
+
+### 4.1 Modelagem de Dados (`src/core/models.py`)
+
+- **`PontoEntrega`** — um nó do grafo (hospital/unidade ou depósito). Atributos: coordenadas `(x, y)`, `demanda_carga` e `e_critico` (define alta prioridade no fitness). O ID `0` representa o **Hospital Central (depósito)**.
+- **`Veiculo`** — uma unidade da frota, com `capacidade_max`, `autonomia_max` e a `rota` (lista ordenada de IDs).
+- **`IndividuoVRP`** — um cromossomo (uma solução completa): a frota inteira e seu `fitness`.
+
+### 4.2 Função de Fitness
+
+O `CalculadorFitness` avalia cada solução computando:
+
+- **Distância total** percorrida por cada veículo (matriz de distâncias pré-calculada em `GerenciadorDistancias` para desempenho).
+- **Multiplicador de prioridade** (`peso_prioridade`) sobre os trechos que chegam a pontos críticos.
+- **Penalidades** (10000) quando um veículo excede `capacidade_max` ou `autonomia_max`.
+
+Quanto **menor** o fitness, melhor a solução.
+
+### 4.3 Operadores Evolutivos
+
+- **Inicialização heurística**: população inicial gerada pela heurística do **vizinho mais próximo aleatorizado**, respeitando a capacidade dos veículos.
+- **Codificação**: crossover e mutação operam sobre uma sequência linear de genes (clientes), que é depois **decodificada** de volta para frotas validando as restrições de carga.
+- **Cruzamento OX** (`Ordered Crossover`): preserva a ordem relativa de permutações.
+- **Mutação Swap**: troca a posição de dois nós na sequência logística.
+- **Seleção por torneio** e **elitismo** para preservar os melhores indivíduos entre gerações.
+
+O loop encerra ao atingir `max_geracoes` ou após `max_estagnacao` gerações sem melhoria.
+
+---
+
+## 5. Interface Gráfica e Telemetria (Integrante 2)
+
+A camada de apresentação consome os dados brutos gerados pelo motor (frotas, rotas ordinais, fitness e histórico) e os representa graficamente como um gêmeo digital interativo.
+
+### 5.1 Conversão de Coordenadas e Identidade Visual
+
+Os pontos flutuam em um sistema cartesiano abstrato no intervalo `[-20.0, 20.0]`. Como o Pygame usa pixels a partir do canto superior esquerdo `(0,0)`, uma transformação linear com margens de segurança de 60px previne o corte de nós nas bordas:
+
+```python
 def converter_coordenadas(x_cartesiano, y_cartesiano):
     pixel_x = ((x_cartesiano + 20) * (680 / 40)) + 60
     pixel_y = ((-y_cartesiano + 20) * (580 / 40)) + 60
     return int(pixel_x), int(pixel_y)
 ```
-Melhorias visuais e de UI/UX aplicadas:
-Hospital Central (Depósito): Destacado com tamanho fixo e coloração vermelha suave (COR_HOSPITAL).
 
-Pontos de Entrega Padrão: Representados por círculos na cor azul (COR_PONTO_NORMAL).
+Elementos visuais:
+- **Hospital Central (depósito)**: destacado em vermelho suave (`COR_HOSPITAL`).
+- **Pontos de entrega padrão**: círculos azuis (`COR_PONTO_NORMAL`).
+- **Pontos críticos de urgência médica**: âmbar (`COR_PONTO_CRITICO`), com **animação senoidal de pulsação** (`math.sin`) para capturar a atenção do operador.
+- **Rotas**: cada veículo ativo recebe uma cor exclusiva da paleta `CORES_ROTAS`.
 
-Pontos Críticos de Urgência Médica: Exibidos na cor âmbar (COR_PONTO_CRITICO) com uma animação senoidal de pulsação (math.sin), alterando dinamicamente o raio do nó ao longo do tempo para capturar a atenção imediata do operador humano.
+### 5.2 HUD e Visualização Estatística
 
-Rotas Diferenciadas: Cada veículo ativo recebe uma cor exclusiva contida na paleta CORES_ROTAS, facilitando o rastreamento visual das trajetórias sobrepostas.
+A janela é dividida em regiões bem definidas — **viewport principal** (renderização do grafo) e **HUD lateral** (painel escuro de telemetria). O HUD exibe:
 
-## 2.3 HUD e Visualização Estatística de Dados
-A área total da interface de 1200x700px foi dividida em duas subregiões bem definidas:
+- **Custo atual (fitness)**: valor numérico do custo total em tempo real.
+- **Barras de carga volumétrica**: somam a demanda dos pontos visitados por veículo e desenham barras de progresso, alertando sobre a proximidade do limite de capacidade.
+- **Curva de convergência histórica**: gráfico de linhas do vetor `historico_fitness`, comprovando a estabilização dos operadores evolutivos.
 
-Viewport Principal (800x700px): Espaço reservado para a renderização do grafo geográfico, nós hospitalares e as linhas de fluxo das rotas.
+### 5.3 Controle de Execução e Estabilidade do S.O.
 
-HUD Lateral (400x700px): Painel escuro de telemetria textual e gráfica para suporte à tomada de decisão.
+Processamentos matemáticos pesados tendem a reter o fluxo de execução; ao atingir o critério de parada, o S.O. pode marcar a janela como "Não Respondendo". Para mitigar isso, a função `manter_tela_aberta()` chaveia a thread principal para um laço focado estritamente em responder aos eventos do S.O., congelando o estado final das rotas para auditoria humana prolongada até o usuário fechar a janela.
 
-Componentes de Telemetria Exibidos no HUD:
-Custo Atual (Fitness): Exibição numérica em tempo real do custo total da rota (distâncias e penalidades).
+---
 
-Barras de Carga Volumétrica: O sistema lê a sequência de IDs de pontos visitados por cada veículo, soma suas demandas de carga em tempo real e desenha retângulos dinâmicos que funcionam como barras de progresso, alertando visualmente a proximidade do limite de capacidade máxima do veículo.
+## 6. Camada de Inteligência Artificial (Integrante 3)
 
-Curva de Convergência Histórica: Mapeamento pixel a pixel do vetor historico_fitness gerando um gráfico de linhas contínuo no canto inferior do painel, o que comprova visualmente a estabilização e eficácia dos operadores evolutivos do algoritmo.
+Acopla uma camada de inteligência cognitiva (LLM — OpenAI) sobre os dados finais da otimização. A experiência é **unificada no `main.py`**: após a convergência do algoritmo genético, a janela Pygame é alargada e ganha uma terceira coluna com o **chat do assistente de IA** (mapa e dashboard permanecem visíveis), exibindo perguntas de exemplo clicáveis.
 
-# 3. Controle de Execução e Estabilidade do S.O.
-Processamentos matemáticos pesados e contínuos tendem a reter o controle do fluxo de execução. Quando o algoritmo genético atinge seu critério de parada, se a aplicação encerrar ou interromper abruptamente a escuta do sistema, o Sistema Operacional (S.O.) assume que a janela travou por falta de consumo de sua fila de mensagens, exibindo o status de "Não Respondendo".
+- Nenhuma requisição é feita à API até o usuário perguntar.
+- Requer `OPENAI_API_KEY` no ambiente ou em um arquivo `.env` (ver `.env.example`). **Sem a chave, a simulação roda normalmente e apenas o chat fica desativado.**
+- O modelo é configurável via `OPENAI_MODEL` (default `gpt-4o-mini`).
 
-Para mitigar esse problema e garantir a usabilidade corporativa, implementei a função manter_tela_aberta() baseada na retenção de estado:
+**Módulos** (`src/ia/`): construção do contexto em `contexto.py`, engenharia de prompt em `prompts.py` e integração com a OpenAI em `assistente.py`.
 
-```Python
-def manter_tela_aberta():
-    rodando = True
-    while rodando:
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                rodando = False
+**Contrato de dados** — ao final do processamento, o objeto `melhor_solucao` (instância de `IndividuoVRP`) encapsula o cenário otimizado. A camada de IA lê estes atributos para montar o contexto:
 
-    pygame.quit()
-    sys.exit()
-```
-
-Assim que a convergência é atingida no main.py, a thread principal chaveia a sua execução para este laço infinito focado estritamente em responder aos eventos do S.O. Isso congela o estado final das melhores rotas calculadas na tela, permitindo auditoria humana prolongada e análise estatística dos custos e frotas até que o usuário decida fechar a janela manualmente.
-
-# 4. Testes Automatizados
-Em conformidade com a responsabilidade de garantir a estabilidade do ecossistema de software, criei uma suíte de testes unitários e de integração utilizando o framework pytest. O objetivo foi isolar a lógica matemática e os pipelines de dados visuais de quaisquer efeitos colaterais puramente gráficos da interface.
-
-A suíte implementada em tests/test_visualizacao.py cobre os seguintes pilares:
-
-Determinismo Geométrico (test_conversao_coordenadas_origem_cartesiana): Garante que o ponto central (0.0, 0.0) seja mapeado exatamente no centro do Viewport útil da tela (400px, 350px).
-
-Limites de Fronteira do Domínio (test_conversao_coordenadas_limites_do_dominio): Valida se os extremos cartesianos de (-20.0, 20.0) respeitam as margens de proteção estabelecidas sem risco de transbordo de tela.
-
-Integridade de Telemetria (test_pipeline_streaming_telemetria_callback): Utiliza um objeto simulado (Mock) do motor genético para certificar que os dados de fitness e o histórico cruzam a fronteira do callback e chegam à camada visual de forma íntegra, sem perda de precisão decimal.
-
-Validação de Regras de Logística na HUD (test_calculo_acumulado_carga_frota_na_visualizacao): Testa se o algoritmo agregador que varre as rotas computa corretamente a soma das demandas de carga dos pontos e gera o coeficiente percentual exato que dimensiona as barras gráficas na interface do usuário.
-
-# 5. Guia de Configuração e Execução
-Siga os passos abaixo para configurar o ambiente de desenvolvimento isolado, instalar as dependências necessárias e rodar a aplicação e seus testes.
-
-## 5.1 Pré-requisitos
-Certifique-se de ter o Python 3.10 ou superior instalado em seu sistema operacional.
-
-## 5.2 Clonar o Repositório e Acessar o Diretório
-```Bash
-git clone <url-do-seu-repositorio>
-cd <nome-do-repositorio>
-```
-## 5.3 Criar e Ativar o Ambiente Virtual (venv)
-
-Linux / macOS:
-
-```Bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-Windows (Prompt de Comando / CMD):
-
-```DOS
-python -m venv venv
-call venv\Scripts\activate.bat
-```
-
-Windows (PowerShell):
-```PowerShell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-## 5.4 Instalar as Dependências via Arquivo de Requisitos
-Atualize o gerenciador de pacotes e realize a instalação automatizada de todas as dependências do ecossistema (pygame, numpy, pytest) mapeadas no arquivo de manifesto:
-
-```Bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-(Nota: Certifique-se de que o arquivo requirements.txt está presente na raiz do diretório com as linhas listando as dependências do projeto).
-
-## 5.5 Executar a Aplicação Principal
-Inicia a simulação gráfica renderizando a convergência das rotas em tempo real:
-
-```Bash
-python main.py
-```
-
-## 5.6 Executar a Suíte de Testes Automatizados
-Para rodar a validação matemática desenvolvida para a camada visual:
-
-```Bash
-pytest tests/
-```
-
-# 6. Manual de Integração para os Próximos Integrantes
-Para garantir a continuidade e a escalabilidade do Tech Challenge (Fase 2), este manual estabelece os contratos de dados, interfaces e diretrizes técnicas para os Integrantes 3 e 4.
-
-> **Nota de implementação:** o módulo do Integrante 3 descrito abaixo **já está implementado** em `src/ia/` (construção de contexto em `contexto.py`, prompt em `prompts.py`, integração com a OpenAI em `assistente.py`), com testes em `tests/test_ia_contexto.py`. A experiência é unificada no `main.py`: após a convergência do algoritmo genético, a janela Pygame é alargada e ganha uma terceira coluna com o chat do assistente de IA (mapa e dashboard permanecem visíveis), exibindo perguntas de exemplo clicáveis — nenhuma requisição é feita à API até o usuário perguntar (requer `OPENAI_API_KEY` no ambiente; modelo configurável via `OPENAI_MODEL`, default `gpt-4o-mini`; sem a chave, a janela apenas mantém o resultado final). As seções seguintes permanecem como registro do contrato de dados original.
-
-## Módulo do Integrante 3 — Inteligência Artificial
-Sua responsabilidade é acoplar uma camada de inteligência cognitiva (LLM - OpenAI ou equivalente) sobre os dados finais obtidos pelo motor de otimização. Você consumirá a melhor solução encontrada e desenvolverá os prompts necessários para a geração de relatórios executivos, instruções em linguagem natural para os motoristas e uma interface de consulta estilo chat.
-
-Contrato de Dados (Como extrair as informações do Core)
-Ao final do processamento no arquivo main.py, o objeto melhor_solucao (instância de IndividuoVRP) encapsula todo o cenário lógico otimizado. Você deve ler estes atributos para montar o contexto de prompt que será enviado à API da LLM:
-
-```Python
+```python
 # Custo total consolidado (distância + penalidades) para o Relatório Executivo
-custo_total = melhor_solucao.fitness 
+custo_total = melhor_solucao.fitness
 
-# Varredura das frotas para geração de Instruções aos Motoristas
+# Varredura das frotas para geração de instruções aos motoristas
 for veiculo in melhor_solucao.frotas:
-    if len(veiculo.rota) > 2:
-        id_carro = veiculo.id_veiculo
-        capacidade_maxima = veiculo.capacidade_max
-        
-        # Lista ordenada de IDs dos pontos a serem visitados (Ex: [0, 4, 11, 2, 0])
-        sequencia_visitas = veiculo.rota 
-        
-        # Soma da demanda real de medicamentos alocada neste veículo
-        carga_atual = sum(pontos[idx].demanda_carga for idx in veiculo.rota)
-        
-        # Identificação se a rota deste motorista possui algum ponto com urgência médica
+    if len(veiculo.rota) > 2:  # ignora veículos ociosos (rota [0, 0])
+        sequencia_visitas = veiculo.rota                                      # ex.: [0, 4, 11, 2, 0]
+        carga_atual = sum(pontos[idx].demanda_carga for idx in veiculo.rota)  # demanda alocada
         contem_ponto_critico = any(pontos[idx].e_critico for idx in veiculo.rota)
 ```
 
-### Prompt do Sistema Sugerido (System Prompt)
+**Tarefas suportadas pelo assistente**: instruções operacionais por veículo (com alertas de segurança para pontos `e_critico`), relatório de eficiência logística (custo de fitness, ociosidade de carga, gargalos) e sugestões de melhoria nas rotas.
 
-Ao enviar os dados estruturados em JSON para a LLM, utilize uma parametrização de engenharia de prompt restrita:
+---
 
-```Plaintext
-Você é o Assistente de Inteligência Artificial Especialista em Logística Médica do Hospital Central.
-Com base nos dados estruturados de frotas e rotas fornecidos em formato JSON, gere:
+## 7. Testes Automatizados
 
-1. Instruções Operacionais por Veículo: Instruções textuais claras para o motorista 
-contendo a ordem das entregas e alertas explícitos de segurança caso sua rota possua
-pontos com e_critico=True.
+Suíte em **pytest** que isola a lógica matemática e os pipelines de dados dos efeitos colaterais gráficos. Cobertura principal:
 
-2. Relatório de Eficiência Logística: 
-Um sumário focado em negócios para a diretoria detalhando o custo de fitness final, 
-taxa de ociosidade de carga dos caminhões e avaliação de gargalos.
+- **Motor genético** (`test_genetic.py`): operadores evolutivos e integridade das soluções.
+- **Determinismo geométrico** (`test_visualizacao.py`): garante que `(0.0, 0.0)` seja mapeado ao centro do viewport e que os extremos `(-20.0, 20.0)` respeitem as margens de proteção.
+- **Integridade de telemetria**: usa um `MockOtimizadorVRP` para certificar que fitness e histórico cruzam a fronteira do callback sem perda de precisão.
+- **Regras de logística na HUD**: valida o cálculo acumulado de carga que dimensiona as barras gráficas.
+- **Camada de IA** (`test_ia_contexto.py`): exercita `construir_contexto` de forma pura, **sem acessar a rede**.
+
+Execução: `pytest tests/`
+
+---
+
+## 8. Configuração e Execução
+
+### 8.1 Pré-requisitos
+
+Python **3.10 ou superior**.
+
+### 8.2 Clonar e criar o ambiente virtual
+
+```bash
+git clone <url-do-repositorio>
+cd vrp_hospitalar_optimization
+python -m venv .venv
 ```
 
-## Módulo do Integrante 4 — Infraestrutura e Cloud
-Sua responsabilidade é empacotar a aplicação completa (Core, a Interface Pygame desenvolvida por mim, e as APIs de IA desenvolvidas pelo Integrante 3) utilizando containers Docker, provisionar a infraestrutura de computação e segurança em ambiente de nuvem utilizando Terraform e documentar a arquitetura da solução.
+Ativação do ambiente:
+- **Windows (PowerShell):** `.\.venv\Scripts\Activate.ps1`
+- **Windows (CMD):** `call .venv\Scripts\activate.bat`
+- **Linux / macOS:** `source .venv/bin/activate`
 
-Desafio de Infraestrutura: Renderização do Pygame em Modo Headless
-A biblioteca Pygame exige nativamente uma interface gráfica ou servidor de exibição ativo (X11, Wayland ou DirectX) acoplado ao hardware. Ambientes de nuvem (como instâncias AWS EC2, AWS ECS Fargate ou instâncias do Google Cloud) operam estritamente em modo Headless (servidores sem monitor).
+### 8.3 Instalar dependências
 
-Para evitar erros de inicialização do Pygame no ambiente do container, implemente uma das duas soluções de infraestrutura abaixo:
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-- Opção 1 (Driver Virtual Dummy via Variável de Ambiente): Configurar o Pygame para rodar no container direcionando a saída de vídeo para um driver fantasma em memória:
+### 8.4 (Opcional) Configurar a IA
 
-    ```Bash
-    export SDL_VIDEODRIVER=dummy
-    ```
--  Opção 2 (Servidor de Framebuffer Virtualizado no Dockerfile): Instalar o pacote xvfb na imagem Linux do container. O xvfb emula um display virtual em memória RAM, permitindo que o Pygame renderize os frames e execute as janelas normalmente dentro do container sem travar o pipeline:
+```bash
+cp .env.example .env   # e preencha OPENAI_API_KEY
+```
 
-    ```Dockerfile
-    FROM python:3.10-slim
-    RUN apt-get update && apt-get install -y xvfb freeglut3-dev && rm -rf /var/lib/apt/lists/*
-    WORKDIR /app
-    COPY . .
-    RUN pip install -r requirements.txt
-    # Dispara a aplicação empacotada dentro do wrapper do xvfb
-    CMD ["xvfb-run", "--server-args=-screen 0 1200x700x24", "python", "main.py"]
-    ```
+### 8.5 Executar
 
-### Recomendações de Arquitetura em Nuvem para provisionamento via Terraform:
-- Armazenamento de Credenciais Securas: Utilizar o AWS Secrets Manager ou Google Secret Manager para guardar chaves de API restritas (OPENAI_API_KEY) necessárias para o módulo de IA.
+```bash
+python main.py     # inicia a simulação gráfica com convergência em tempo real e chat de IA
+pytest tests/      # roda a suíte de testes automatizados
+```
 
-- Automação de CI/CD: Estruturar um fluxo que acione o runner do pytest tests/ (desenvolvido por mim) antes de realizar o build e push automático da imagem Docker para o registro de containers da nuvem (AWS ECR ou Google Artifact Registry).
+> `main.py` define `random.seed(42)` para cenários reproduzíveis — comente ou altere a seed para gerar rotas diferentes a cada execução.
+
+---
+
+## 9. Infraestrutura e Deploy (Integrante 4)
+
+Escopo planejado: empacotar a aplicação completa (Core, Interface Pygame e camada de IA) em containers Docker, provisionar a infraestrutura em nuvem via Terraform e documentar a arquitetura.
+
+### Desafio: Pygame em modo headless
+
+O Pygame exige um servidor de exibição ativo, mas ambientes de nuvem operam em modo *headless*. Para evitar erros de inicialização no container, use uma das opções:
+
+- **Driver virtual dummy** (variável de ambiente):
+  ```bash
+  export SDL_VIDEODRIVER=dummy
+  ```
+- **Framebuffer virtual (xvfb)** no Dockerfile:
+  ```dockerfile
+  FROM python:3.10-slim
+  RUN apt-get update && apt-get install -y xvfb freeglut3-dev && rm -rf /var/lib/apt/lists/*
+  WORKDIR /app
+  COPY . .
+  RUN pip install -r requirements.txt
+  CMD ["xvfb-run", "--server-args=-screen 0 1200x700x24", "python", "main.py"]
+  ```
+
+### Recomendações de arquitetura em nuvem (Terraform)
+
+- **Credenciais seguras**: armazenar a `OPENAI_API_KEY` em AWS Secrets Manager ou Google Secret Manager.
+- **CI/CD**: acionar `pytest tests/` antes do build e push automático da imagem Docker para o registro de containers (AWS ECR ou Google Artifact Registry).
