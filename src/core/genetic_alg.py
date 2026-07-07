@@ -63,10 +63,6 @@ class CalculadorFitness:
         individuo.fitness = sum(self.avaliar_veiculo(v, pontos) for v in individuo.frotas)
         return individuo.fitness
 
-# ====================================================================
-# FUNÇÕES DE ESCOPO GLOBAL (Fora das classes)
-# ====================================================================
-
 def inicializar_populacao_heuristica(pontos: List[PontoEntrega], 
                                      modelos_veiculos: List[Veiculo], 
                                      tamanho_populacao: int, 
@@ -135,10 +131,9 @@ def cruzamento_ox(pai1_genes: List[int], pai2_genes: List[int]) -> List[int]:
     
     posicao_insercao = (fim + 1) % tamanho
     for gene in pai2_genes:
-        if gene not in filho:
-            if gene not in filho: 
-                filho[posicao_insercao] = gene
-                posicao_insercao = (posicao_insercao + 1) % tamanho
+        if gene not in filho: 
+            filho[posicao_insercao] = gene
+            posicao_insercao = (posicao_insercao + 1) % tamanho
             
     return filho
 
@@ -196,10 +191,6 @@ def selecao_torneio(populacao: List[IndividuoVRP], tamanho_torneio: int = 3) -> 
     competidores = random.sample(populacao, tamanho_torneio)
     return min(competidores, key=lambda ind: ind.fitness)
 
-# ====================================================================
-# CLASSE DE ORQUESTRAÇÃO
-# ====================================================================
-
 class OtimizadorVRP:
     """Motor principal que orquestra a evolução do Algoritmo Genético."""
     def __init__(self, pontos: List[PontoEntrega], modelos_veiculos: List[Veiculo], 
@@ -221,14 +212,6 @@ class OtimizadorVRP:
         self.melhor_individuo_global = None
         self.historico_fitness = []
 
-    # ----------------------------------------------------------------
-    # INTEGRANTE 2 - Lucas Camilo (MODIFICAÇÃO PARA RENDERIZAÇÃO EM TEMPO REAL)
-    # Padrão Inversão de Controle (IoC) via Injeção de Callback:
-    # O parâmetro 'callback' aceita uma assinatura executável (callable). 
-    # Essa abordagem foi escolhida para desacoplar a lógica matemática do 
-    # algoritmo genético de qualquer dependência direta da interface gráfica (Pygame),
-    # mantendo o núcleo computacional puro, testável e reutilizável.
-    # ----------------------------------------------------------------
     def executar(self, callback=None) -> IndividuoVRP:
         populacao = inicializar_populacao_heuristica(
             self.pontos, self.modelos_veiculos, self.tamanho_populacao, self.gerenciador_dist
@@ -253,14 +236,6 @@ class OtimizadorVRP:
                 
             self.historico_fitness.append(self.melhor_individuo_global.fitness)
             
-            # --------------------------------------------------------
-            # INTEGRANTE 2 - Lucas Camilo (MODIFICAÇÃO PARA RENDERIZAÇÃO EM TEMPO REAL)
-            # Despacho Síncrono de Telemetria Interativa:
-            # Verifica se um observador externo interceptou o loop.
-            # Se verdadeiro, invoca o callback passando o estado consolidado da geração:
-            # o melhor fenótipo gerado até aqui e o vetor histórico de convergência.
-            # Isso alimenta a renderização dinâmica em tempo real a cada iteração do algoritmo.
-            # --------------------------------------------------------
             if callback is not None:
                 callback(self.melhor_individuo_global, self.historico_fitness)
             
