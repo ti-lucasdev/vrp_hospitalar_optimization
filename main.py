@@ -22,15 +22,15 @@ def gerar_pontos_aleatorios(quantidade: int) -> list[PontoEntrega]:
 def rodar_teste():
     print("=== Inicializando Teste do Motor Genético (VRP) em Tempo Real ===")
     
-    QUANTIDADE_PONTOS = 20 
+    QUANTIDADE_PONTOS = 100
     pontos = gerar_pontos_aleatorios(QUANTIDADE_PONTOS)
     
     modelos_veiculos = [
-        Veiculo(id_veiculo=1, capacidade_max=75.0, autonomia_max=200.0),
-        Veiculo(id_veiculo=2, capacidade_max=75.0, autonomia_max=200.0),
-        Veiculo(id_veiculo=3, capacidade_max=75.0, autonomia_max=200.0),
-        Veiculo(id_veiculo=4, capacidade_max=75.0, autonomia_max=200.0),
-        Veiculo(id_veiculo=5, capacidade_max=75.0, autonomia_max=200.0),
+        Veiculo(id_veiculo=1, capacidade_max=75.0, autonomia_max=500.0),
+        Veiculo(id_veiculo=2, capacidade_max=75.0, autonomia_max=500.0),
+        Veiculo(id_veiculo=3, capacidade_max=75.0, autonomia_max=500.0),
+        Veiculo(id_veiculo=4, capacidade_max=75.0, autonomia_max=500.0),
+        Veiculo(id_veiculo=5, capacidade_max=75.0, autonomia_max=500.0),
     ]
     
     otimizador = OtimizadorVRP(
