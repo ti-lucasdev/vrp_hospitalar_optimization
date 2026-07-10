@@ -238,27 +238,48 @@ pytest tests/      # roda a suíte de testes automatizados
 
 ## 9. Infraestrutura e Deploy (Integrante 4)
 
-Escopo planejado: empacotar a aplicação completa (Core, Interface Pygame e camada de IA) em containers Docker, provisionar a infraestrutura em nuvem via Terraform e documentar a arquitetura.
+A aplicação completa (Core, Interface Pygame e camada de IA) foi empacotada em containers Docker, com infraestrutura provisionada na AWS via Terraform e um pipeline de CI/CD via GitHub Actions.
 
-### Desafio: Pygame em modo headless
+### 9.1 Containerização e execução headless do Pygame
 
-O Pygame exige um servidor de exibição ativo, mas ambientes de nuvem operam em modo *headless*. Para evitar erros de inicialização no container, use uma das opções:
+Como o Pygame exige nativamente um servidor de exibição, e ambientes de nuvem operam em modo *headless*, foi adotada a solução de **display virtual via Xvfb**, iniciado em segundo plano dentro do próprio container:
 
-- **Driver virtual dummy** (variável de ambiente):
-  ```bash
-  export SDL_VIDEODRIVER=dummy
-  ```
-- **Framebuffer virtual (xvfb)** no Dockerfile:
-  ```dockerfile
-  FROM python:3.10-slim
-  RUN apt-get update && apt-get install -y xvfb freeglut3-dev && rm -rf /var/lib/apt/lists/*
-  WORKDIR /app
-  COPY . .
-  RUN pip install -r requirements.txt
-  CMD ["xvfb-run", "--server-args=-screen 0 1200x700x24", "python", "main.py"]
-  ```
+```dockerfile
+FROM python:3.12-slim
 
-### Recomendações de arquitetura em nuvem (Terraform)
+RUN apt-get update && apt-get install -y \
+    xvfb \
+    freeglut3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-- **Credenciais seguras**: armazenar a `OPENAI_API_KEY` em AWS Secrets Manager ou Google Secret Manager.
-- **CI/CD**: acionar `pytest tests/` antes do build e push automático da imagem Docker para o registro de containers (AWS ECR ou Google Artifact Registry).
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+ENV DISPLAY=:99
+
+CMD ["/bin/bash", "-c", "Xvfb :99 -screen 0 1200x700x24 & sleep 1 && pytest tests/ -v"]
+```
+
+> **Nota de compatibilidade:** a imagem base foi atualizada de `python:3.10-slim` para `python:3.12-slim`, já que a dependência `numpy==2.5.1` exige nativamente Python 3.12+.
+>
+> **Nota de implementação:** optou-se por iniciar o Xvfb manualmente em vez de usar o wrapper `xvfb-run`, que trava indefinidamente sem o pacote `xauth` instalado — abordagem validada em testes locais e no pipeline de CI/CD.
+
+O propósito do modo headless aqui é permitir que a suíte de testes automatizados (`pytest tests/`) rode de forma confiável em ambientes sem monitor (CI/CD) — não a hospedagem remota da janela interativa, que exigiria tecnologias de streaming (VNC) fora do escopo do projeto.
+
+### 9.2 Pipeline de CI/CD (GitHub Actions)
+
+A cada `push`, o workflow `.github/workflows/ci-cd.yml` executa: build da imagem Docker → testes automatizados dentro do container → (exclusivamente na branch `main`, e apenas se os testes passarem) login na AWS e push da imagem validada para o Amazon ECR.
+
+### 9.3 Infraestrutura como código (Terraform)
+
+Definida em `terraform/`, provisiona:
+
+- **Amazon ECR** — repositório privado de imagens Docker, com scan de vulnerabilidades automático;
+- **AWS Secrets Manager** — armazena a `OPENAI_API_KEY` com segurança, fora do código-fonte;
+- **IAM** — usuário dedicado ao CI/CD com permissão mínima (apenas push no ECR), sem acesso administrativo.
+
+A execução em produção (job batch no ECS Fargate, consumindo a imagem do ECR e a chave do Secrets Manager) está documentada na arquitetura, mas não mantida ativa permanentemente — evitando custos de infraestrutura ociosa em ambiente acadêmico. O provisionamento é validado sob demanda via `terraform apply` / `terraform destroy`.
