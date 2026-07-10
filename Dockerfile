@@ -1,4 +1,4 @@
-﻿FROM python:3.10-slim
+﻿FROM python:3.12-slim
 
 # Instala o xvfb (display virtual em memoria) e dependencias necessarias
 # para o Pygame conseguir inicializar mesmo sem monitor fisico conectado
