@@ -1,0 +1,45 @@
+﻿name: CI/CD - Build, Test e Push para ECR
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Build da imagem Docker
+        run: docker build -t vrp-hospitalar:${{ github.sha }} .
+
+      - name: Rodar testes automatizados dentro do container
+        run: docker run --rm vrp-hospitalar:${{ github.sha }}
+
+      - name: Configurar credenciais da AWS
+        if: github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login no Amazon ECR
+        if: github.ref == 'refs/heads/main'
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag e push da imagem para o ECR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag vrp-hospitalar:${{ github.sha }} ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          docker tag vrp-hospitalar:${{ github.sha }} ${{ secrets.ECR_REPOSITORY_URL }}:latest
+          docker push ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          docker push ${{ secrets.ECR_REPOSITORY_URL }}:latest
