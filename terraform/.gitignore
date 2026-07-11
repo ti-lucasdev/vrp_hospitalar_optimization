@@ -1,0 +1,13 @@
+﻿# Arquivos de estado do Terraform - contem informacoes sensiveis,
+# nunca devem ser commitados
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Arquivo de variaveis com valores reais (contem a OPENAI_API_KEY)
+*.tfvars
+!*.tfvars.example
+
+# Plano salvo
+*.tfplan
